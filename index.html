@@ -180,6 +180,18 @@ textarea{min-height:92px;resize:vertical;line-height:1.5}
   margin:auto;box-shadow:0 30px 60px rgba(0,0,0,.35)}
 .modale h3{margin-bottom:6px}
 
+/* ---- scena della soglia ---- */
+.soglia-velo{align-items:center;background:rgba(8,14,26,.82)}
+.scena-soglia{background:linear-gradient(170deg,var(--notte-2),#0d1628);border:2px solid var(--oro);
+  border-radius:24px;padding:40px 36px;text-align:center;color:#fff;max-width:480px;margin:auto;
+  box-shadow:0 30px 80px rgba(0,0,0,.5);animation:scenaEntra .5s ease-out}
+.scena-nome{font-family:var(--serif);font-size:32px;margin-top:12px}
+.scena-tappa{font-size:16px;color:var(--oro-chiaro);margin-top:6px}
+.scena-santo{font-size:14px;color:#a9bbd8;margin-top:10px}
+.scena-soglia .aur{animation:aureolaPulsa 1s ease-out}
+@keyframes scenaEntra{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+@keyframes aureolaPulsa{0%{transform:scale(.7);opacity:0}60%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
+
 /* ---- avviso ---- */
 #avviso{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);
   background:var(--inchiostro);color:#fff;padding:12px 20px;border-radius:999px;font-size:14.5px;
@@ -561,13 +573,35 @@ function aureola(pp, w){
 function attesePer(cid){ return D.richieste.filter(r=>r.stato==="attesa" && r.classeId===cid).length; }
 function atteseTotali(){ return D.richieste.filter(r=>r.stato==="attesa").length; }
 
+let SOGLIA_CODA = [];
 function assegna(cid, sid, delta, causale){
   const s = studente(cid,sid); if(!s) return;
   delta = Math.round(Number(delta)||0);
-  s.pp = Math.max(0, (s.pp||0) + delta);
+  const prima = s.pp||0;
+  s.pp = Math.max(0, prima + delta);
   s.storico = s.storico || [];
   s.storico.unshift({ts:Date.now(), delta, causale:causale||"Movimento"});
+  const raggiunta = TAPPE.filter(t=>prima<t && s.pp>=t).pop();
+  if(raggiunta) SOGLIA_CODA.push({nick:s.nick, santo:s.santo, soglia:raggiunta, pp:s.pp});
   salva();
+}
+
+function mostraSoglia(){
+  const item = SOGLIA_CODA.shift();
+  if(!item) return;
+  chiudiModale();
+  const san = SANTI.find(x=>x.n===item.santo);
+  document.getElementById("modale-host").innerHTML = `<div class="velo soglia-velo" data-velo>
+    <div class="scena-soglia">
+      ${aureola(item.pp, 220)}
+      <div class="scena-nome">${esc(mostra(item.nick))}</div>
+      <div class="scena-tappa">ha raggiunto ${item.soglia} Punti Paradiso</div>
+      ${san?`<div class="scena-santo">accompagnato da ${esc(san.n)}</div>`:""}
+    </div></div>`;
+  setTimeout(()=>{
+    if(document.querySelector(".soglia-velo")) chiudiModale();
+    if(SOGLIA_CODA.length) mostraSoglia();
+  }, 3000);
 }
 
 /* ============================================================
@@ -1679,6 +1713,7 @@ document.addEventListener("click", ev=>{
       D = vuoto(); salva(); U.sbloccato=false; U.classeId=null; vai("ingresso"); avvisa("Tutto azzerato.");
     }); break;
   }
+  if(SOGLIA_CODA.length) mostraSoglia();
 });
 
 document.addEventListener("change", ev=>{
