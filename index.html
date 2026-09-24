@@ -197,6 +197,16 @@ textarea{min-height:92px;resize:vertical;line-height:1.5}
 .testata .btn{margin-left:auto}
 .nota-privacy{font-size:13px;color:var(--testo-soft);background:#f4f8fd;border:1px solid var(--bordo);
   border-radius:10px;padding:10px 13px}
+
+/* ---- bigliettini ---- */
+.griglia-biglietti{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:0;
+  border-top:1px dashed var(--bordo);border-left:1px dashed var(--bordo)}
+.biglietto{border-right:1px dashed var(--bordo);border-bottom:1px dashed var(--bordo);
+  padding:18px 14px;text-align:center;display:grid;gap:6px;align-content:center;min-height:120px}
+.biglietto-classe{font-size:12px;letter-spacing:.4px;color:var(--testo-soft);text-transform:uppercase}
+.biglietto-nick{font-family:var(--serif);font-size:19px}
+.biglietto-pin{font-size:14px;color:var(--azzurro)}
+
 @media print{.barra-azioni,.btn{display:none}}
 </style>
 </head>
@@ -536,7 +546,7 @@ function disegna(){
   const viste = {
     ingresso:vIngresso, privacy:vPrivacy,
     docPin:vDocPin, docHome:vDocHome, docClasse:vDocClasse, docMazzo:vDocMazzo,
-    docRichieste:vDocRichieste, docRegistro:vDocRegistro, docImpostazioni:vDocImpostazioni,
+    docRichieste:vDocRichieste, docRegistro:vDocRegistro, docBiglietti:vDocBiglietti, docImpostazioni:vDocImpostazioni,
     stuAccesso:vStuAccesso, stuHome:vStuHome, stuRichiesta:vStuRichiesta, stuNomina:vStuNomina, stuQuiz:vStuQuiz, stuStorico:vStuStorico
   };
   app.innerHTML = intestazione() + (viste[U.vista]||vIngresso)();
@@ -690,6 +700,7 @@ function vDocClasse(){
       <button class="btn ${att?"primario":""}" data-act="apriRichieste">Richieste ${att?`<span class="pallino">${att}</span>`:""}</button>
       <button class="btn" data-act="apriRegistro">Registro</button>
       <button class="btn" data-act="nuovoSlot">Aggiungi slot</button>
+      <button class="btn" data-act="importazioneMassiva">Aggiungi in massa</button>
       <button class="btn ${c.aperta!==false?"oro":""}" data-act="toggleAperta">${c.aperta!==false?"Iscrizione libera: attiva":"Iscrizione libera: chiusa"}</button>
       <button class="btn fantasma" data-act="classeOpzioni">Rinomina o elimina la classe</button>
       <button class="btn ${sel?"oro":""} fantasma" style="margin-left:auto" data-act="toggleSelMultipla">${sel?"Annulla selezione":"Selezione multipla"}</button>
@@ -791,6 +802,24 @@ function vDocRegistro(){
       <button class="btn piccolo fantasma" data-act="tornaClasse">Torna alla classe</button>
     </div>
     ${mov.length? lista : `<div class="vuoto">Il registro è vuoto: qui finiranno tutti i punti dati e tolti, con orario e causale.</div>`}
+  </div>`;
+}
+
+function vDocBiglietti(){
+  const b = U.biglietti;
+  if(!b) return vDocClasse();
+  const cards = b.elenco.map(x=>`<div class="biglietto">
+    <div class="biglietto-classe">${esc(b.classe)}</div>
+    <div class="biglietto-nick">${esc(x.nick)}</div>
+    <div class="biglietto-pin">PIN <b>${esc(x.pin)}</b></div>
+  </div>`).join("");
+  return `<div class="pannello">
+    <div class="testata">
+      <div><h2>Bigliettini da distribuire</h2><small>${b.elenco.length} bigliettini · ${esc(b.classe)} · ritaglia lungo i bordi tratteggiati.</small></div>
+      <button class="btn piccolo fantasma" data-act="tornaClasse">Torna alla classe</button>
+    </div>
+    <div class="barra-azioni" style="margin-bottom:16px"><button class="btn primario" data-act="stampaBiglietti">Stampa</button></div>
+    <div class="griglia-biglietti">${cards}</div>
   </div>`;
 }
 
@@ -1132,6 +1161,20 @@ function modaleClasse(id){
     </div>`);
 }
 
+function modaleImportazione(cid){
+  apriModale(`
+    <h3>Inserimento massivo</h3>
+    <p><small>Incolla un nickname per riga. L'app crea uno slot per ciascuno, genera un PIN e assegna un santo a caso. Alla fine potrai stampare i bigliettini da distribuire.</small></p>
+    <div class="campo"><label for="mElenco">Elenco nickname (uno per riga)</label>
+      <textarea id="mElenco" style="min-height:170px" placeholder="Pellicano Sereno
+Cedro Ostinato
+Lanterna Gentile"></textarea></div>
+    <div class="barra-azioni">
+      <button class="btn primario" data-act="salvaImportazione" data-id="${cid}">Crea gli slot</button>
+      <button class="btn fantasma" data-act="chiudi">Annulla</button>
+    </div>`);
+}
+
 function infoSanto(nome){
   const x = SANTI.find(s=>s.n===nome);
   if(!x) return `<small>Scegli una figura dall'elenco: qui comparirà la sua storia.</small>`;
@@ -1209,6 +1252,28 @@ document.addEventListener("click", ev=>{
   case "apriMazzo": U.carta=null; vai("docMazzo"); break;
   case "apriRichieste": vai("docRichieste"); break;
   case "apriRegistro": vai("docRegistro"); break;
+  case "importazioneMassiva": modaleImportazione(U.classeId); break;
+  case "salvaImportazione": {
+    const cl = classe(id); if(!cl) break;
+    const righe = document.getElementById("mElenco").value.split("\n").map(x=>x.trim()).filter(Boolean);
+    if(!righe.length){ avvisa("Incolla almeno un nickname."); break; }
+    const creati = [];
+    const presi = new Set(cl.studenti.map(s=>s.nick.toLowerCase()));
+    righe.forEach(nick=>{
+      if(presi.has(nick.toLowerCase())) return;
+      const pin = String(Math.floor(1000+Math.random()*9000));
+      const santo = SANTI[Math.floor(Math.random()*SANTI.length)].n;
+      const s = {id:uid(), nick, pin, santo, pp:0, storico:[]};
+      cl.studenti.push(s); creati.push(s); presi.add(nick.toLowerCase());
+    });
+    if(!creati.length){ avvisa("Nessuno slot creato: quei nickname sono già presenti in classe."); break; }
+    salva(); chiudiModale();
+    U.biglietti = {classe:cl.nome, elenco:creati.map(s=>({nick:s.nick, pin:s.pin}))};
+    vai("docBiglietti");
+    avvisa(`${creati.length} slot creati.`);
+    break;
+  }
+  case "stampaBiglietti": window.print(); break;
   case "chiudi": chiudiModale(); break;
 
   /* --- accesso docente --- */
