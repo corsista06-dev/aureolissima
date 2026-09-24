@@ -166,6 +166,8 @@ textarea{min-height:92px;resize:vertical;line-height:1.5}
   box-shadow:0 0 0 6px rgba(244,214,140,.2),0 22px 40px rgba(0,0,0,.35)}
 .carta.domanda{background:linear-gradient(170deg,#ffffff,#e4effc);border-color:#9cc0e6;color:var(--inchiostro);
   box-shadow:0 22px 40px rgba(0,0,0,.35)}
+.carta.spunto{background:linear-gradient(170deg,#ffffff,#e7f4ea);border-color:#9bc9a8;color:var(--inchiostro);
+  box-shadow:0 22px 40px rgba(0,0,0,.35)}
 .carta.malus{background:linear-gradient(170deg,#2a2036,#150f1f);border-color:#4a3a60;color:#e5dcf2;
   box-shadow:0 22px 40px rgba(0,0,0,.45)}
 .carta.retro{background:linear-gradient(170deg,var(--notte-2),#0d1628);border-color:#31456c;color:#9fb4d6}
@@ -341,6 +343,25 @@ const QUIZ = [
  {d:"Che cosa significa, alla lettera, la parola «martire»?", m:["Vittima","Testimone","Eroe","Sacerdote"], r:"Testimone", sp:"Dal greco martys: chi testimonia in tribunale. Il senso di «ucciso per la fede» è arrivato dopo.", pp:5},
  {d:"Chi guidò con la nonviolenza l'indipendenza dell'India?", m:["Nehru","Gandhi","Tagore","Ambedkar"], r:"Gandhi", sp:"Chiamava la sua strategia satyagraha, «forza della verità».", pp:4}
 ];
+
+const SPUNTI = [
+ {t:"Secondo te, oggi la schiavitù esiste ancora, anche se ha un altro nome?", pp:5},
+ {t:"Se un amico ti confidasse un errore grave, lo copriresti o lo inviteresti a dirlo a chi di dovere? Perché?", pp:5},
+ {t:"Quanto conta l'intenzione di un gesto, rispetto al risultato che produce?", pp:4},
+ {t:"C'è qualcosa che oggi consideriamo normale e che tra cent'anni sarà giudicato sbagliato, come è successo con la schiavitù?", pp:6},
+ {t:"È più difficile perdonare o chiedere scusa? Racconta se ti va, senza fare nomi.", pp:5},
+ {t:"I social ti spingono più a confrontarti con gli altri o a giudicarli? Fai un esempio.", pp:5},
+ {t:"Un gesto fatto solo per essere notato vale comunque qualcosa, o conta solo l'intenzione nascosta?", pp:5},
+ {t:"Se potessi salvare una sola cosa della tua religione o della tua cultura per le generazioni future, che cosa sceglieresti?", pp:6},
+ {t:"Ha ancora senso oggi la parola «sacro», fuori da un contesto religioso?", pp:5},
+ {t:"Qual è, secondo te, il confine tra una tradizione da rispettare e un'abitudine da cambiare?", pp:5},
+ {t:"Chi ti sembra più coraggioso: chi resiste da solo o chi si unisce a un gruppo per farsi ascoltare?", pp:4},
+ {t:"Pensando alle figure studiate quest'anno, quale ti somiglia di più, anche solo per un aspetto?", pp:4}
+];
+
+function mazzoCompleto(){
+  return MAZZO.map(k=>({...k, tipo:"domanda"})).concat(SPUNTI.map(k=>({...k, tipo:"spunto"})));
+}
 
 const SOGLIE = [10,20,30,45,55,65,80,100];
 
@@ -722,8 +743,14 @@ function vDocMazzo(){
   if(!k){
     carta = `<div class="carta retro">
       <div class="genere">Mazzo di San Pietro</div>
-      <div class="testo">Trenta domande, faccia in giù.</div>
-      <div class="nota">Pesca, leggi ad alta voce, assegna i punti a chi risponde.</div>
+      <div class="testo">Domande e spunti di riflessione, faccia in giù.</div>
+      <div class="nota">Pesca, leggi ad alta voce, assegna i punti a chi risponde o si esprime meglio.</div>
+    </div>`;
+  } else if(k.tipo==="spunto"){
+    carta = `<div class="carta spunto">
+      <div class="genere">Spunto di riflessione · vale fino a ${k.pp} PP</div>
+      <div class="testo">${esc(k.t)}</div>
+      <div class="nota">Non c'è una risposta giusta: valuta chi si è espresso meglio.</div>
     </div>`;
   } else {
     carta = `<div class="carta domanda">
@@ -741,8 +768,8 @@ function vDocMazzo(){
     </div>
     ${carta}
     <div class="barra-azioni">
-      <button class="btn oro" data-act="pesca">${k?"Pesca un'altra domanda":"Pesca una domanda"}</button>
-      ${k&&!U.svelata?`<button class="btn cupo" style="border-color:#5b7099" data-act="svela">Mostra la risposta</button>`:""}
+      <button class="btn oro" data-act="pesca">${k?"Pesca un'altra carta":"Pesca una carta"}</button>
+      ${k&&!U.svelata&&k.tipo!=="spunto"?`<button class="btn cupo" style="border-color:#5b7099" data-act="svela">Mostra la risposta</button>`:""}
       ${k?`<button class="btn" data-act="applicaCarta">Assegna ${k.pp} PP a…</button>`:""}
     </div>
   </div>`;
@@ -1442,7 +1469,8 @@ document.addEventListener("click", ev=>{
 
   /* --- mazzo --- */
   case "pesca": {
-    let k; do { k = MAZZO[Math.floor(Math.random()*MAZZO.length)]; } while(MAZZO.length>1 && k===U.carta);
+    const pool = mazzoCompleto();
+    let k; do { k = pool[Math.floor(Math.random()*pool.length)]; } while(pool.length>1 && U.carta && k.t===U.carta.t);
     U.carta = k; U.svelata = false; disegna(); break;
   }
   case "svela": U.svelata = true; disegna(); break;
