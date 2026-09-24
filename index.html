@@ -546,7 +546,7 @@ function disegna(){
   const viste = {
     ingresso:vIngresso, privacy:vPrivacy,
     docPin:vDocPin, docHome:vDocHome, docClasse:vDocClasse, docMazzo:vDocMazzo,
-    docRichieste:vDocRichieste, docRegistro:vDocRegistro, docBiglietti:vDocBiglietti, docImpostazioni:vDocImpostazioni,
+    docRichieste:vDocRichieste, docRegistro:vDocRegistro, docRiepilogo:vDocRiepilogo, docBiglietti:vDocBiglietti, docImpostazioni:vDocImpostazioni,
     stuAccesso:vStuAccesso, stuHome:vStuHome, stuRichiesta:vStuRichiesta, stuNomina:vStuNomina, stuQuiz:vStuQuiz, stuStorico:vStuStorico
   };
   app.innerHTML = intestazione() + (viste[U.vista]||vIngresso)();
@@ -699,6 +699,7 @@ function vDocClasse(){
       <button class="btn oro" data-act="apriMazzo">Mazzo di San Pietro</button>
       <button class="btn ${att?"primario":""}" data-act="apriRichieste">Richieste ${att?`<span class="pallino">${att}</span>`:""}</button>
       <button class="btn" data-act="apriRegistro">Registro</button>
+      <button class="btn" data-act="apriRiepilogo">Riepilogo</button>
       <button class="btn" data-act="nuovoSlot">Aggiungi slot</button>
       <button class="btn" data-act="importazioneMassiva">Aggiungi in massa</button>
       <button class="btn ${c.aperta!==false?"oro":""}" data-act="toggleAperta">${c.aperta!==false?"Iscrizione libera: attiva":"Iscrizione libera: chiusa"}</button>
@@ -802,6 +803,43 @@ function vDocRegistro(){
       <button class="btn piccolo fantasma" data-act="tornaClasse">Torna alla classe</button>
     </div>
     ${mov.length? lista : `<div class="vuoto">Il registro è vuoto: qui finiranno tutti i punti dati e tolti, con orario e causale.</div>`}
+  </div>`;
+}
+
+function crescitaUltimoMese(s){
+  const soglia = Date.now() - 30*24*60*60*1000;
+  return (s.storico||[]).filter(m=>m.ts>=soglia).reduce((a,m)=>a+m.delta,0);
+}
+
+function vDocRiepilogo(){
+  const c = classe(U.classeId); if(!c) return vDocHome();
+  const ordinati = [...c.studenti].sort((a,b)=>(b.pp||0)-(a.pp||0));
+  const media = c.studenti.length ? Math.round(c.studenti.reduce((a,x)=>a+(x.pp||0),0)/c.studenti.length) : 0;
+  const crescite = ordinati.map(s=>({s, cresc:crescitaUltimoMese(s)}));
+  const miglior = crescite.length ? crescite.reduce((a,b)=>b.cresc>a.cresc?b:a) : null;
+  const righe = ordinati.map((s,i)=>{
+    const cr = crescitaUltimoMese(s);
+    return `<div class="mov">
+      <div class="delta su" style="min-width:32px">${i+1}°</div>
+      <div class="causale"><b>${esc(mostra(s.nick))}</b> · ${s.pp||0} PP
+        <br><small>${cr>0?"+"+cr:cr} PP nell'ultimo mese</small></div>
+    </div>`;
+  }).join("");
+  const archivi = (c.archivi||[]).slice().reverse().map(a=>`<div class="mov">
+    <div class="causale"><b>${esc(a.etichetta)}</b><br><small>${ora(a.ts)} · ${a.classifica.length} studenti</small></div>
+  </div>`).join("");
+  return `<div class="pannello">
+    <div class="testata">
+      <div><h2>Riepilogo · ${esc(c.nome)}</h2><small>Classifica, media e crescita dell'ultimo mese.</small></div>
+      <button class="btn piccolo fantasma" data-act="tornaClasse">Torna alla classe</button>
+    </div>
+    <p><b>${media}</b> PP di media classe.${miglior && miglior.cresc>0?` <b>${esc(mostra(miglior.s.nick))}</b> è cresciuto di più nell'ultimo mese: +${miglior.cresc} PP.`:""}</p>
+    <div class="barra-azioni" style="margin:14px 0">
+      <button class="btn" data-act="esportaCsv">Esporta CSV</button>
+      <button class="btn" style="border-color:#e0b7b7;color:var(--rosso)" data-act="chiudiQuadrimestre">Chiudi il quadrimestre</button>
+    </div>
+    ${c.studenti.length? righe : `<div class="vuoto">Nessuno slot in questa classe.</div>`}
+    ${archivi ? `<hr class="tra"><h3>Quadrimestri chiusi</h3>${archivi}` : ""}
   </div>`;
 }
 
@@ -1252,6 +1290,36 @@ document.addEventListener("click", ev=>{
   case "apriMazzo": U.carta=null; vai("docMazzo"); break;
   case "apriRichieste": vai("docRichieste"); break;
   case "apriRegistro": vai("docRegistro"); break;
+  case "apriRiepilogo": vai("docRiepilogo"); break;
+  case "esportaCsv": {
+    const righe = ["Nickname;Punti;Crescita ultimo mese"];
+    [...c.studenti].sort((a,b)=>(b.pp||0)-(a.pp||0)).forEach(s=>{
+      righe.push(`${s.nick};${s.pp||0};${crescitaUltimoMese(s)}`);
+    });
+    const blob = new Blob(["﻿"+righe.join("\r\n")], {type:"text/csv;charset=utf-8"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "riepilogo-" + c.nome.replace(/[^a-z0-9]+/gi,"-").toLowerCase() + "-" + new Date().toISOString().slice(0,10) + ".csv";
+    a.click(); URL.revokeObjectURL(a.href); avvisa("CSV scaricato."); break;
+  }
+  case "chiudiQuadrimestre": {
+    conferma("Chiudere il quadrimestre?",
+      "I punti attuali vengono archiviati con la classifica di oggi, poi tutti gli studenti ripartono da zero. Lo storico dei movimenti resta intatto e resterà consultabile dal registro.",
+      "Chiudi il quadrimestre", ()=>{
+        c.archivi = c.archivi || [];
+        c.archivi.push({
+          ts: Date.now(),
+          etichetta: "Quadrimestre chiuso il " + new Date().toLocaleDateString("it-IT"),
+          classifica: [...c.studenti].sort((a,b)=>(b.pp||0)-(a.pp||0)).map(s=>({nick:s.nick, pp:s.pp||0}))
+        });
+        c.studenti.forEach(s=>{
+          if(s.pp){ s.storico = s.storico||[]; s.storico.unshift({ts:Date.now(), delta:-s.pp, causale:"Chiusura del quadrimestre: azzeramento punti"}); }
+          s.pp = 0;
+        });
+        salva(); disegna(); avvisa("Quadrimestre chiuso e archiviato.");
+      });
+    break;
+  }
   case "importazioneMassiva": modaleImportazione(U.classeId); break;
   case "salvaImportazione": {
     const cl = classe(id); if(!cl) break;
