@@ -91,6 +91,13 @@ button{font:inherit;cursor:pointer}
   box-shadow:0 8px 20px rgba(22,35,60,.06)}
 .slot .nome{font-family:var(--serif);font-size:20px;line-height:1.2;word-break:break-word}
 .slot .santo{font-size:12.5px;color:var(--testo-soft);line-height:1.35}
+.slot.selezionabile{cursor:pointer}
+.slot.selezionato{outline:3px solid var(--oro);outline-offset:2px}
+.slot .spunta{position:absolute;top:12px;right:12px;width:24px;height:24px;border-radius:50%;
+  border:2px solid var(--bordo);background:#fff}
+.slot.selezionato .spunta{background:var(--oro);border-color:#c69a2e}
+.barra-selezione{position:sticky;top:0;z-index:20;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  background:#fdf4e0;border:1px solid #ecd9a8;border-radius:12px;padding:10px 14px;margin-bottom:14px}
 .pp{display:flex;align-items:baseline;gap:6px;font-family:var(--serif)}
 .pp b{font-size:32px;color:var(--azzurro);letter-spacing:-.5px}
 .pp i{font-style:normal;font-size:12px;color:var(--testo-soft)}
@@ -654,17 +661,22 @@ function vDocClasse(){
   const c = classe(U.classeId);
   if(!c) return vDocHome();
   const att = attesePer(c.id);
+  const sel = U.selMultipla;
+  const selezionati = new Set(U.selezionati||[]);
   const ordinati = [...c.studenti].sort((a,b)=>(b.pp||0)-(a.pp||0));
   const slot = ordinati.map(s=>{
     const san = SANTI.find(x=>x.n===s.santo);
-    return `<div class="slot aureolato">
+    const on = selezionati.has(s.id);
+    return `<div class="slot aureolato ${sel?"selezionabile":""} ${on?"selezionato":""}" ${sel?`data-act="toggleSel" data-id="${s.id}"`:""} style="position:relative">
+      ${sel?`<span class="spunta"></span>`:""}
       ${aureola(s.pp||0, 150)}
       <div class="nome">${esc(mostra(s.nick))}</div>
       <div class="santo">${s.santo?`con <b>${esc(s.santo)}</b>${san?`, patrono ${esc(san.p)}`:""}`:"nessun patrono assegnato"}</div>
-      <div class="barra-azioni" style="margin-top:4px;justify-content:center">
+      ${sel?"":`<div class="barra-azioni" style="margin-top:4px;justify-content:center">
+        <button class="btn piccolo oro" data-act="piuUno" data-id="${s.id}">+1</button>
         <button class="btn piccolo" data-act="movimento" data-id="${s.id}">Punti</button>
         <button class="btn piccolo fantasma" data-act="slotOpzioni" data-id="${s.id}">Gestisci</button>
-      </div>
+      </div>`}
     </div>`;
   }).join("");
 
@@ -680,7 +692,12 @@ function vDocClasse(){
       <button class="btn" data-act="nuovoSlot">Aggiungi slot</button>
       <button class="btn ${c.aperta!==false?"oro":""}" data-act="toggleAperta">${c.aperta!==false?"Iscrizione libera: attiva":"Iscrizione libera: chiusa"}</button>
       <button class="btn fantasma" data-act="classeOpzioni">Rinomina o elimina la classe</button>
+      <button class="btn ${sel?"oro":""} fantasma" style="margin-left:auto" data-act="toggleSelMultipla">${sel?"Annulla selezione":"Selezione multipla"}</button>
     </div>
+    ${sel?`<div class="barra-selezione">
+      <b>${selezionati.size}</b> selezionat${selezionati.size===1?"o":"i"}
+      <button class="btn piccolo primario" data-act="assegnaMultiplo">Assegna punti alle selezionate</button>
+    </div>`:""}
     ${c.studenti.length? `<div class="griglia g-slot">${slot}</div>` :
       `<div class="vuoto">Nessuno slot in questa classe. Creane uno con un nickname e un PIN: lo studente entrerà con quelli.</div>`}
   </div>`;
@@ -725,6 +742,7 @@ function vDocRichieste(){
     if(a.stato!==b.stato) return a.stato==="attesa" ? -1 : 1;
     return b.ts-a.ts;
   });
+  const quizAttesa = rs.filter(r=>r.tipo==="quiz" && r.stato==="attesa");
   const lista = rs.map(r=>{
     const s = studente(c.id, r.studId);
     const seg = r.tipo==="nomina" ? studente(c.id, r.segnalatoreId) : null;
@@ -750,6 +768,9 @@ function vDocRichieste(){
       <div><h2>Richieste · ${esc(c.nome)}</h2><small>Nessun punto viene sommato finché non approvi tu.</small></div>
       <button class="btn piccolo fantasma" data-act="tornaClasse">Torna alla classe</button>
     </div>
+    ${quizAttesa.length>1?`<div class="barra-azioni" style="margin-bottom:14px">
+      <button class="btn oro" data-act="approvaTutteQuiz">Approva tutte le corrette del quiz (${quizAttesa.length})</button>
+    </div>`:""}
     ${rs.length? lista : `<div class="vuoto">Nessuna richiesta ancora. Arriveranno qui quando gli studenti chiederanno punti o supereranno un quiz.</div>`}
   </div>`;
 }
@@ -1048,6 +1069,22 @@ function modaleMovimento(sid){
     </div>`);
 }
 
+function modaleMovimentoMultiplo(){
+  const n = (U.selezionati||[]).length;
+  apriModale(`
+    <h3>Punti per ${n} student${n===1?"e":"i"} selezionat${n===1?"o":"i"}</h3>
+    <div class="due">
+      <div class="campo"><label for="mDeltaM">Punti (usa il meno per toglierli)</label>
+        <input id="mDeltaM" type="number" value="1"></div>
+      <div class="campo"><label for="mCausaleM">Causale</label>
+        <input id="mCausaleM" maxlength="80" placeholder="Es. Partecipazione"></div>
+    </div>
+    <div class="barra-azioni">
+      <button class="btn primario" data-act="salvaMovimentoMultiplo">Registra per tutti</button>
+      <button class="btn fantasma" data-act="chiudi">Annulla</button>
+    </div>`);
+}
+
 function modaleCarta(){
   const c = classe(U.classeId); const k = U.carta; if(!k) return;
   if(!c.studenti.length){ avvisa("Prima aggiungi almeno uno slot alla classe."); return; }
@@ -1249,6 +1286,26 @@ document.addEventListener("click", ev=>{
     if(!d){ avvisa("Indica quanti punti dare o togliere."); break; }
     assegna(c.id, id, d, ca); chiudiModale(); disegna(); avvisa("Registrato."); break;
   }
+  case "piuUno": assegna(c.id, id, 1, "Partecipazione"); disegna(); avvisa("+1 assegnato."); break;
+  case "toggleSelMultipla": U.selMultipla = !U.selMultipla; U.selezionati = []; disegna(); break;
+  case "toggleSel": {
+    const set = new Set(U.selezionati||[]);
+    if(set.has(id)) set.delete(id); else set.add(id);
+    U.selezionati = [...set]; disegna(); break;
+  }
+  case "assegnaMultiplo": {
+    if(!(U.selezionati||[]).length){ avvisa("Seleziona almeno uno slot."); break; }
+    modaleMovimentoMultiplo(); break;
+  }
+  case "salvaMovimentoMultiplo": {
+    const d = Number(document.getElementById("mDeltaM").value);
+    const ca = document.getElementById("mCausaleM").value.trim() || "Assegnazione del docente";
+    if(!d){ avvisa("Indica quanti punti dare o togliere."); break; }
+    (U.selezionati||[]).forEach(sid => assegna(c.id, sid, d, ca));
+    const n = (U.selezionati||[]).length;
+    U.selMultipla = false; U.selezionati = [];
+    chiudiModale(); disegna(); avvisa(`Registrato per ${n} student${n===1?"e":"i"}.`); break;
+  }
 
   /* --- mazzo --- */
   case "pesca": {
@@ -1288,6 +1345,11 @@ document.addEventListener("click", ev=>{
   case "respingi": {
     const r = D.richieste.find(x=>x.id===id);
     r.stato="respinta"; salva(); disegna(); avvisa("Richiesta respinta."); break;
+  }
+  case "approvaTutteQuiz": {
+    const lista = D.richieste.filter(r=>r.classeId===c.id && r.tipo==="quiz" && r.stato==="attesa");
+    lista.forEach(r=>{ assegna(r.classeId, r.studId, r.pp, "Quiz superato: " + r.testo); r.stato="approvata"; });
+    salva(); disegna(); avvisa(`Approvate ${lista.length} richieste di quiz.`); break;
   }
 
   /* --- studente --- */
