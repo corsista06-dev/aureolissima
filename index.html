@@ -200,6 +200,20 @@ textarea{min-height:92px;resize:vertical;line-height:1.5}
 .nota-privacy{font-size:13px;color:var(--testo-soft);background:#f4f8fd;border:1px solid var(--bordo);
   border-radius:10px;padding:10px 13px}
 
+/* ---- modalità proiezione ---- */
+body.proiezione{background:var(--notte)}
+body.proiezione .pannello{background:var(--inchiostro);border-color:#2a3c5c;color:#eef3fb}
+body.proiezione h2,body.proiezione h3{color:#fff}
+body.proiezione small{color:#a9bbd8}
+body.proiezione .slot{background:var(--notte-2);border-color:#33456a;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+body.proiezione .slot .nome{font-size:34px}
+body.proiezione .slot .santo{font-size:16px;color:#a9bbd8}
+body.proiezione .pp b{font-size:46px}
+body.proiezione .btn{font-size:17px;padding:12px 20px}
+body.proiezione .g-slot{grid-template-columns:repeat(6,1fr)}
+@media(max-width:1400px){body.proiezione .g-slot{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:820px){body.proiezione .g-slot{grid-template-columns:repeat(2,1fr)}}
+
 /* ---- bigliettini ---- */
 .griglia-biglietti{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:0;
   border-top:1px dashed var(--bordo);border-left:1px dashed var(--bordo)}
@@ -571,6 +585,7 @@ function disegna(){
     stuAccesso:vStuAccesso, stuHome:vStuHome, stuRichiesta:vStuRichiesta, stuNomina:vStuNomina, stuQuiz:vStuQuiz, stuStorico:vStuStorico
   };
   app.innerHTML = intestazione() + (viste[U.vista]||vIngresso)();
+  document.body.classList.toggle("proiezione", !!U.proiezione);
 }
 
 function intestazione(){
@@ -725,6 +740,7 @@ function vDocClasse(){
       <button class="btn" data-act="importazioneMassiva">Aggiungi in massa</button>
       <button class="btn ${c.aperta!==false?"oro":""}" data-act="toggleAperta">${c.aperta!==false?"Iscrizione libera: attiva":"Iscrizione libera: chiusa"}</button>
       <button class="btn fantasma" data-act="classeOpzioni">Rinomina o elimina la classe</button>
+      <button class="btn ${U.proiezione?"oro":""}" data-act="modProiezione">${U.proiezione?"Modalità proiezione: attiva":"Modalità proiezione"}</button>
       <button class="btn ${sel?"oro":""} fantasma" style="margin-left:auto" data-act="toggleSelMultipla">${sel?"Annulla selezione":"Selezione multipla"}</button>
     </div>
     ${sel?`<div class="barra-selezione">
@@ -1305,7 +1321,7 @@ document.addEventListener("click", ev=>{
 
   /* --- navigazione --- */
   case "casa": vai("ingresso"); break;
-  case "esci": U.sbloccato=false; U.studId=null; vai("ingresso"); break;
+  case "esci": U.sbloccato=false; U.studId=null; U.proiezione=false; vai("ingresso"); break;
   case "vaiPrivacy": U.provenienza = U.vista; vai("privacy"); break;
   case "indietroPrivacy": vai(U.provenienza && U.provenienza!=="privacy" ? U.provenienza : "ingresso"); break;
   case "vaiDocente": vai(U.sbloccato ? "docHome" : "docPin"); break;
@@ -1448,6 +1464,8 @@ document.addEventListener("click", ev=>{
   }
   case "piuUno": assegna(c.id, id, 1, "Partecipazione"); disegna(); avvisa("+1 assegnato."); break;
   case "toggleSelMultipla": U.selMultipla = !U.selMultipla; U.selezionati = []; disegna(); break;
+  case "modProiezione": U.proiezione = !U.proiezione; disegna();
+    avvisa(U.proiezione?"Modalità proiezione attiva.":"Modalità proiezione disattivata."); break;
   case "toggleSel": {
     const set = new Set(U.selezionati||[]);
     if(set.has(id)) set.delete(id); else set.add(id);
