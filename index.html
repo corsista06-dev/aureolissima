@@ -1095,14 +1095,22 @@ function vStuNomina(){
   const s = studente(U.classeId, U.studId); if(!s) return vStuAccesso();
   const c = classe(U.classeId);
   const altri = c.studenti.filter(x=>x.id!==s.id);
+  const citazione = `<blockquote style="font-family:var(--serif);font-style:italic;font-size:15.5px;line-height:1.6;
+    color:var(--testo-soft);border-left:3px solid var(--oro);margin:0 0 18px;padding:4px 0 4px 16px">
+    «L'Amore non abbia finzioni: fuggite il male con orrore, attaccatevi al bene; amatevi gli uni gli altri
+    con affetto fraterno, gareggiate nell'amarvi a vicenda.»
+    <footer style="font-style:normal;font-size:12.5px;margin-top:6px;color:var(--testo-soft)">— San Paolo, Romani 12,9-10</footer>
+  </blockquote>`;
   if(!altri.length) return `<div class="pannello" style="max-width:560px;margin:0 auto">
     <div class="testata"><div><h2>Segnala un compagno</h2><small>Non ci sono altri slot in questa classe, per ora.</small></div>
       <button class="btn piccolo fantasma" data-act="tornaStud">Indietro</button></div>
+    ${citazione}
   </div>`;
   const opz = altri.map(x=>`<option value="${x.id}">${esc(mostra(x.nick))}</option>`).join("");
   return `<div class="pannello" style="max-width:560px;margin:0 auto">
     <div class="testata"><div><h2>Segnala un compagno</h2><small>Racconta un gesto che hai notato: decide il docente, e i punti vanno a lui, non a te.</small></div>
       <button class="btn piccolo fantasma" data-act="tornaStud">Indietro</button></div>
+    ${citazione}
     <div class="campo"><label for="chiSegn">Chi</label><select id="chiSegn">${opz}</select></div>
     <div class="campo"><label for="testoSegn">Che cosa ha fatto</label>
       <textarea id="testoSegn" maxlength="400" placeholder="Es. Ha aiutato Marco a raccogliere i fogli caduti senza che nessuno glielo chiedesse."></textarea></div>
