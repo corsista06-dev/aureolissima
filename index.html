@@ -1072,13 +1072,14 @@ function vStuHome(){
 
 function vStuRichiesta(){
   const s = studente(U.classeId, U.studId); if(!s) return vStuAccesso();
-  const opz = MOTIVI.filter(m=>m.id!=="quiz").map(m=>`<option value="${m.id}">${esc(m.e)}</option>`).join("");
+  // La carità non si chiede per sé: quel riconoscimento passa da "Segnala un compagno" o dal docente.
+  const opz = MOTIVI.filter(m=>m.id!=="quiz" && m.id!=="carita").map(m=>`<option value="${m.id}">${esc(m.e)}</option>`).join("");
   return `<div class="pannello" style="max-width:560px;margin:0 auto">
     <div class="testata"><div><h2>Chiedi dei punti</h2><small>Spiega bene che cosa hai fatto: decide il docente.</small></div>
       <button class="btn piccolo fantasma" data-act="tornaStud">Indietro</button></div>
     <div class="campo"><label for="tipoRic">Per che cosa</label><select id="tipoRic">${opz}</select></div>
     <div class="campo"><label for="testoRic">Racconta in poche righe</label>
-      <textarea id="testoRic" maxlength="400" placeholder="Es. Ho spiegato l'esercizio a Giulia che era rimasta indietro dopo l'assenza."></textarea></div>
+      <textarea id="testoRic" maxlength="400" placeholder="Es. Ho rifatto a casa tutti gli esercizi che avevo sbagliato nella verifica, uno per uno."></textarea></div>
     <div class="campo" style="max-width:200px"><label for="ppRic">Punti che chiedi (1-10)</label>
       <input id="ppRic" type="number" min="1" max="10" value="5"></div>
     <button class="btn primario pieno" data-act="inviaRichiesta">Invia al docente</button>
